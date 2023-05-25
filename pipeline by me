@@ -1,0 +1,39 @@
+pipeline{
+    agent any
+    stages {
+        stage('scm'){
+            steps{
+                git 'https://github.com/pitchericodes/praveen-pipeline-jenkins-docker-maven-java-webapp.git'
+            }
+        }
+       stage('build'){
+            steps {
+            sh 'mvn clean package'
+        }    }
+        
+        stage('Build docker image'){
+            steps {
+            sh 'sudo docker build -t praveenreddy1/java-maven-webapp-docker:${BUILD_TAG} . '
+        }    }
+        
+        stage('pushing imag to docker hub with secret passwd'){
+            steps {
+            withCredentials([string(credentialsId: 'dockerhub_password', variable: 'docker_login_pwd')]) {
+            sh 'sudo docker login -u praveenreddy1 -p $docker_login_pwd'
+            }
+            sh 'sudo docker push praveenreddy1/java-maven-webapp-docker:${BUILD_TAG}'
+        }    }
+        
+         stage('Deploy webAPP in QA/Test Env') {
+            steps {
+               
+               sshagent(['LOGINTO_QAT_SSHKEY']) {
+                    sh "ssh  -o  StrictHostKeyChecking=no ec2-user@3.110.133.142 sudo docker rm -f myjavaapp"
+                    sh "ssh ec2-user@3.110.133.142 sudo docker run  -d  -p  8080:8080 --name myjavaapp   praveenreddy1/java-maven-webapp-docker:${BUILD_TAG}"
+                }
+
+            }
+            
+        }
+    }
+}
